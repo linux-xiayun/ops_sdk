@@ -8,7 +8,11 @@ Desc    :
 """
 
 import os
+import time
+import json
+import socket
 import smtplib
+from .consts import const
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from aliyunsdkdysmsapi.request.v20170525 import SendSmsRequest, QuerySendDetailsRequest
@@ -157,6 +161,61 @@ def mail_login(user, password, mail_server='smtp.exmail.qq.com'):
     except Exception as e:
         print(user, e)
         return False
+
+
+def get_contain_dict(src_data: dict, dst_data: dict) -> bool:
+    if not isinstance(src_data, dict):
+        try:
+            src_data = json.loads(src_data)
+        except Exception as err:
+            return False
+
+    if not isinstance(dst_data, dict):
+        try:
+            dst_data = json.loads(dst_data)
+        except Exception as err:
+            return False
+
+    # src_key = list(src_data.keys())
+    # dst_key = list(dst_data.keys())
+    pd = [False for c in src_data.keys() if c not in dst_data]
+    if pd:
+        return False
+    else:
+        src_val = list(src_data.values())
+        dst_val = list(dst_data.values())
+        pds = [False for c in src_val if c not in dst_val]
+        if pds:
+            return False
+        else:
+            return True
+
+
+def now_time_stamp() -> int:
+    """
+    秒时间戳
+    :return: int
+    """
+    return int(time.time())
+
+
+### 这个地址具有唯一性
+def get_node_address():
+    node_name = os.getenv(const.NODE_ADDRESS) if os.getenv(const.NODE_ADDRESS) else socket.gethostname()
+    mac = uuid.UUID(int=uuid.getnode()).hex[-12:]
+    return f'{node_name}--mac-{mac}'
+
+
+### 这个地址是默认可以通配的
+def get_node_topic(node=False):
+    if not node:
+        if os.getenv(const.NODE_ADDRESS): return os.getenv(const.NODE_ADDRESS) + '#'
+        mac = uuid.UUID(int=uuid.getnode()).hex[-12:]
+        return f'{socket.gethostname()}--mac-{mac}#'
+    else:
+        if os.getenv(const.NODE_ADDRESS): return os.getenv(const.NODE_ADDRESS)
+        mac = uuid.UUID(int=uuid.getnode()).hex[-12:]
+        return f'{socket.gethostname()}--mac-{mac}'
 
 
 if __name__ == '__main__':
