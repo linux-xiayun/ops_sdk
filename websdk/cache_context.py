@@ -4,21 +4,13 @@
 Contact : 191715030@qq.com
 Author  : shenshuo
 Date    : 2018/11/26
-Desc    :
+Desc    : 
 """
 import redis
 from .consts import const
 from .configs import configs
 
-import logging
-
-DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
-LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-logging.basicConfig(filename='/var/log/supervisor/ops_sdk.log', level=logging.INFO, format=LOG_FORMAT,
-                    datefmt=DATE_FORMAT)
-
 cache_conns = {}
-
 
 def cache_conn(key=None, db=None):
     redis_configs = configs[const.REDIS_CONFIG_ITEM]

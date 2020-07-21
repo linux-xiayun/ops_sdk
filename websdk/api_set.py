@@ -39,8 +39,3 @@ class ConstAPIS(AdminAPIS, TaskAPIS, KerriganAPIS):
 
 
 api_set = ConstAPIS()
-© 2020 GitHub, Inc.
-Terms
-Privacy
-Security
-Status

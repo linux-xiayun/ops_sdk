@@ -1,161 +1,128 @@
 #!/usr/bin/env python
-# -*-coding:utf-8-*-
+# -*- coding: utf-8 -*-
+""""
+Contact : 191715030@qq.com
+Author : shenshuo
+Date   : 2018年2月5日13:37:54
+Desc   : 处理API请求
 """
-Author : ming
-date   : 2017/4/11 下午1:54
-role   : 常量管理
-"""
 
-from enum import IntEnum as Enum
+import json
+import requests
+from urllib.parse import urlencode
+import logging
+from tornado.httpclient import AsyncHTTPClient
 
-
-class ConstError(TypeError):
-    pass
+logger = logging.getLogger(__name__)
 
 
-class IntEnum(Enum):
+class AcsClient:
+    def __init__(self, request=None, auth_key=None, headers=None, endpoint='http://gw.opendevops.cn',
+                 request_timeout=5):
+        if request:
+            self.headers = request.headers
+        elif headers:
+            self.headers = headers
+        else:
+            self.headers = {"Cookie": 'auth_key={}'.format(auth_key)}
+
+        self.endpoint = endpoint
+        self.headers['Sdk-Method'] = 'zQtY4sw7sqYspVLrqV'
+        self.request_timeout = request_timeout
+
+    ###设置返回为json
+    def do_action(self, **kwargs):
+        kwargs = self.with_params_data_url(**kwargs)
+        response = requests.request(kwargs.get('method'), kwargs.get('url'), headers=self.headers,
+                                    data=kwargs.get('body'), timeout=self.request_timeout)
+
+        return response.text
+
+    ### 返回完整信息
+    def do_action_v2(self, **kwargs):
+        kwargs = self.with_params_data_url(**kwargs)
+        response = requests.request(kwargs.get('method'), kwargs.get('url'), headers=self.headers,
+                                    data=kwargs.get('body'), timeout=self.request_timeout)
+        return response
+
+    async def do_action_with_async(self, **kwargs):
+
+        body = await self._implementation_of_do_action(**kwargs)
+        return body
+
+    async def _implementation_of_do_action(self, **kwargs):
+        http_client = AsyncHTTPClient()
+        request = self.with_params_data_url(**kwargs)
+
+        response = await http_client.fetch(request.get('url'), method=request.get('method'), raise_error=False,
+                                           body=request.get('body'), headers=self.headers,
+                                           request_timeout=self.request_timeout)
+
+        return response.body
+
+    def with_params_data_url(self, **kwargs):
+        ### 重新组装URL
+        url = "{}{}".format(self.endpoint, kwargs['url'])
+        kwargs['url'] = url
+
+        if not kwargs['method']: kwargs['method'] = 'GET'
+
+        body = kwargs.get('body', {})
+
+        if kwargs['method'] in ['POST', 'post', 'PATCH', 'patch', 'PUT', 'put']:
+            if not body:
+                raise TypeError('method {},  body can not be empty'.format(kwargs['method']))
+            else:
+                if not isinstance(body, dict):  json.loads(body)
+
+        if body and isinstance(body, dict): kwargs['body'] = json.dumps(body)
+
+        params = kwargs.get('params')
+        if params: kwargs['url'] = "{}?{}".format(url, urlencode(params))
+
+        if not self.headers: self.headers = kwargs.get('headers', {})
+
+        if kwargs['method'] not in ['GET', 'get']: self.headers['Content-Type'] = 'application/json'
+
+        return kwargs
+
     @staticmethod
-    def find_enum(cls, value):
-        for k, v in cls._value2member_map_.items():
-            if k == value:
-                return v
-        return None
+    def help():
+        help_info = """
+        headers = {"Cookie": 'auth_key={}'.format(auth_key)}
+        ### 三种实例化方式
+        1. client = AcsClient(endpoint=endpoint, headers=headers)
+        2. client = AcsClient(endpoint=endpoint, request=self.request)
+        3. client = AcsClient(endpoint=endpoint, auth_key=auth_key)
+        
+        调用： 传入api 的参数，可以参考下面示例
+        
+        同步
+        response = client.do_action(**api_set.get_users) 
+        print(json.loads(response))
+        
+        异步
+        # import asyncio
+        # loop = asyncio.get_event_loop()
+        # ### 使用gather或者wait可以同时注册多个任务，实现并发
+        # # task1 = asyncio.ensure_future(coroutine1)
+        # # task2 = asyncio.ensure_future(coroutine2)
+        # # tasks = asyncio.gather(*[task1, task2])
+        # # loop.run_until_complete(tasks)
+        # ### 单个使用
+        # response = loop.run_until_complete(client.do_action_with_async(**api_set.get_users))
+        # response = json.loads(response)
+        # print(response)
+        # loop.close()
+        
+        tornado 项目内必须使用异步，不过可以直接使用
+        #client.do_action_with_async(**api_set.get_users)
+        # response = json.loads(response)
+        # print(response)
+        
+         """
+        return help_info
 
 
-class ErrorCode(IntEnum):
-    """ 错误码枚举 """
-
-    not_found = 404
-    bad_request = 400
-    unauthorized = 401
-    forbidden = 403
-    not_allowed = 405
-    not_acceptable = 406
-    conflict = 409
-    gone = 410
-    precondition_failed = 412
-    request_entity_too_large = 413
-    unsupport_media_type = 415
-    internal_server_error = 500
-    service_unavailable = 503
-    service_not_implemented = 501
-    handler_uncatched_exception = 504
-    config_import_error = 1001
-    config_item_notfound_error = 1002
-
-
-class _const(object):
-    def __setattr__(self, name, value):
-        if name in self.__dict__:
-            raise ConstError("Can't rebind const (%s)" % name)
-        if not name.isupper():
-            raise ConstError("Const must be upper.")
-        self.__dict__[name] = value
-
-
-const = _const()
-
-const.DB_CONFIG_ITEM = 'databases'
-const.DBHOST_KEY = 'host'
-const.DBPWD_KEY = 'pwd'
-const.DBUSER_KEY = 'user'
-const.DBNAME_KEY = 'name'
-const.DBPORT_KEY = 'port'
-const.SF_DB_KEY = 'vmobel'
-const.DEFAULT_DB_KEY = 'default'
-const.READONLY_DB_KEY = 'readonly'
-
-const.REDIS_CONFIG_ITEM = 'redises'
-const.RD_HOST_KEY = 'host'
-const.RD_PORT_KEY = 'port'
-const.RD_DB_KEY = 'db'
-const.RD_AUTH_KEY = 'auth'
-const.RD_CHARSET_KEY = 'charset'
-const.RD_DECODE_RESPONSES = 'decode_responses'
-const.RD_PASSWORD_KEY = 'password'
-const.DEFAULT_RD_KEY = 'default'
-
-const.MQ_CONFIG_ITEM = 'mqs'
-const.MQ_ADDR = 'MQ_ADDR'
-const.MQ_PORT = 'MQ_PORT'
-const.MQ_VHOST = 'MQ_VHOST'
-const.MQ_USER = 'MQ_USER'
-const.MQ_PWD = 'MQ_PWD'
-const.DEFAULT_MQ_KEY = 'default'
-
-const.APP_NAME = 'app_name'
-const.LOG_PATH = 'log_path'
-const.LOG_BACKUP_COUNT = 'log_backup_count'
-const.LOG_MAX_FILE_SIZE = 'log_max_filesize'
-
-const.REQUEST_START_SIGNAL = 'request_start'
-const.REQUEST_FINISHED_SIGNAL = 'request_finished'
-
-const.NW_SALT = 'nw'
-const.ALY_SALT = 'aly'
-const.TX_SALT = 'tx'
-const.SG_SALT = 'sg'
-const.DEFAULT_SALT = 'default'
-const.SALT_API = 'salt_api'
-const.SALT_USER = 'salt_username'
-const.SALT_PW = 'salt_password'
-const.SALT_OUT = 'salt_timeout'
-
-const.NW_INCEPTION = 'nw'
-const.ALY_INCEPTION = 'aly'
-const.TX_INCEPTION = 'tx'
-const.DEFAULT_INCEPTION = 'default'
-
-const.REGION = "cn-hangzhou"
-const.PRODUCT_NAME = "Dysmsapi"
-const.DOMAIN = "dysmsapi.aliyuncs.com"
-
-### app settings
-const.APP_SETTINGS = 'APP_SETTINGS'
-### all user info
-const.USERS_INFO = 'USERS_INFO'
-##### API GW
-const.WEBSITE_API_GW_URL = 'WEBSITE_API_GW_URL'
-const.EMAILLOGIN_DOMAIN = 'EMAILLOGIN_DOMAIN'
-const.EMAILLOGIN_SERVER = 'EMAILLOGIN_SERVER'
-##### e-mail
-const.EMAIL_SUBJECT_PREFIX = "EMAIL_SUBJECT_PREFIX"
-const.EMAIL_HOST = "EMAIL_HOST"
-const.EMAIL_PORT = "EMAIL_PORT"
-const.EMAIL_HOST_USER = "EMAIL_HOST_USER"
-const.EMAIL_HOST_PASSWORD = "EMAIL_HOST_PASSWORD"
-const.EMAIL_USE_SSL = "EMAIL_USE_SSL"
-const.EMAIL_USE_TLS = "EMAIL_USE_TLS"
-
-### 短信配置
-const.SMS_REGION = "SMS_REGION"
-const.SMS_PRODUCT_NAME = "SMS_PRODUCT_NAME"
-const.SMS_DOMAIN = "SMS_DOMAIN"
-
-const.SMS_ACCESS_KEY_ID = 'SMS_ACCESS_KEY_ID'
-const.SMS_ACCESS_KEY_SECRET = 'SMS_ACCESS_KEY_SECRET'
-### 钉钉
-const.DING_TALK_WEBHOOK = "DING_TALK_WEBHOOK"
-### 存储
-const.STORAGE_REGION = "STORAGE_REGION"
-const.STORAGE_NAME = "STORAGE_NAME"
-const.STORAGE_PATH = "STORAGE_PATH"
-const.STORAGE_KEY_ID = "STORAGE_KEY_ID"
-const.STORAGE_KEY_SECRET = "STORAGE_KEY_SECRET"
-
-### LDAP
-const.LDAP_SERVER_HOST = "LDAP_SERVER_HOST"
-const.LDAP_SERVER_PORT = "LDAP_SERVER_PORT"
-const.LDAP_ADMIN_DN = "LDAP_ADMIN_DN"
-const.LDAP_ADMIN_PASSWORD = "LDAP_ADMIN_PASSWORD"
-const.LDAP_SEARCH_BASE = "LDAP_SEARCH_BASE"
-const.LDAP_SEARCH_FILTER = "LDAP_SEARCH_FILTER"
-const.LDAP_ATTRIBUTES = "LDAP_ATTRIBUTES"
-const.LDAP_USE_SSL = "LDAP_USE_SSL"
-const.LDAP_ENABLE = "LDAP_ENABLE"
-
-### token 超时时间
-const.TOKEN_EXP_TIME = "TOKEN_EXP_TIME"
-
-### 全局 二次认证
-const.MFA_GLOBAL = 'MFA_GLOBAL'
+if __name__ == '__main__':
+    pass

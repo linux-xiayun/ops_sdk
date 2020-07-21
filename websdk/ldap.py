@@ -9,20 +9,13 @@ Desc    : 对接LDAP登录认证
 
 from ldap3 import Server, Connection, ALL, SUBTREE, ServerPool
 
-import logging
-
-DATE_FORMAT = "%m/%d/%Y %H:%M:%S %p"
-LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-logging.basicConfig(filename='/var/log/supervisor/ops_sdk.log', level=logging.INFO, format=LOG_FORMAT,
-                    datefmt=DATE_FORMAT)
-
 
 class LdapApi:
     def __init__(self, ldap_server_host, ldap_admin_dn, ldap_admin_password, ldap_server_port=389, ldap_use_ssl=False):
         self._ldap_admin_dn = ldap_admin_dn
         self._ldap_admin_password = ldap_admin_password
         # ldap_server_pool = ServerPool(["172.16.0.102",'172.16.0.103'])
-        self.ldap_server = Server(ldap_server_host, port=ldap_server_port, use_ssl=ldap_use_ssl, connect_timeout=10)
+        self.ldap_server = Server(ldap_server_host, port=ldap_server_port, use_ssl=ldap_use_ssl)
 
     def ldap_server_test(self):
         try:
@@ -43,7 +36,7 @@ class LdapApi:
                           check_names=True, lazy=False, raise_exceptions=False)
         conn.open()
         conn.bind()
-        logging.info('-------------------%s-------%s' % (search_filter, username))
+
         res = conn.search(search_base=search_base,
                           search_filter='({}={})'.format(search_filter, username),
                           search_scope=SUBTREE,
@@ -61,10 +54,10 @@ class LdapApi:
                                    raise_exceptions=False)
                 conn2.bind()
                 if conn2.result["description"] == "success":
-                    if attr_dict["email"]:
-                        email = attr_dict["email"][0]
-                    elif attr_dict["mail"]:
-                        email = attr_dict["mail"][0]
+                    if 'email' in attr_dict:
+                        email = attr_dict["email"][0] if isinstance(attr_dict["email"], list) else attr_dict["email"]
+                    elif 'mail' in attr_dict:
+                        email = attr_dict["mail"][0] if isinstance(attr_dict["mail"], list) else attr_dict["mail"]
                     else:
                         email = None
 
@@ -80,7 +73,7 @@ class LdapApi:
 
 
 if __name__ == "__main__":
-    obj = LdapApi('172.16.10.7', 'cn=root,DC=root,DC=net', '070068')
+    obj = LdapApi('172.16.0.102', 'cn=Manager,DC=sz,DC=com', '070068')
     print(obj.ldap_server_test())
     print('____________')
-    print(obj.ldap_auth("yanghongfei", "123456", 'ou=opendevops,dc=shinezone,dc=com', 'cn'))
+    print(obj.ldap_auth("yanghongfei", "123456", 'ou=opendevops,dc=sz,dc=com', 'cn'))

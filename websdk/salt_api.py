@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*-coding:utf-8-*-
 '''
+Author : SS
+date   : 2017年12月29日14:43:24
 role   : 集中化管理工具的使用
 '''
 
@@ -27,7 +29,7 @@ class SaltApi:
     初始化获得token
     """
 
-    def __init__(self, url='https://127.0.0.1:8001/', username="saltapi", password="123456"):
+    def __init__(self, url='https://127.0.0.1:8001/', username="saltapi", password="shenshuo"):
         self.__url = url
         self.__username = username
         self.__password = password
@@ -39,16 +41,10 @@ class SaltApi:
         self.params = {'client': 'local', 'fun': '', 'tgt': ''}
         self.login_url = self.__url + "login"
         self.login_params = {'username': self.__username, 'password': self.__password, 'eauth': 'pam'}
-        self.token = self.post_data(self.login_url, self.login_params)['token']
+        self.token = self.get_data(self.login_url, self.login_params)['token']
         self.headers['X-Auth-Token'] = self.token
 
-    def get_data(self, url):
-        request = requests.get(url, headers=self.headers, verify=False)
-        response = request.json()
-        result = dict(response)
-        return result['return'][0]
-
-    def post_data(self, url, params):
+    def get_data(self, url, params):
         send_data = json.dumps(params)
         request = requests.post(url, data=send_data, headers=self.headers, verify=False)
         response = request.json()
@@ -61,7 +57,7 @@ class SaltApi:
             params = {'client': 'local', 'fun': method, 'tgt': tgt, 'arg': arg}
         else:
             params = {'client': 'local', 'fun': method, 'tgt': tgt}
-        result = self.post_data(self.__url, params)
+        result = self.get_data(self.__url, params)
         return result
 
     def salt_async_command(self, tgt, method, arg=None):  # 异步执行salt命令，根据jid查看执行结果
@@ -71,25 +67,25 @@ class SaltApi:
             params = {'client': 'local_async', 'fun': method, 'tgt': tgt, 'arg': arg}
         else:
             params = {'client': 'local_async', 'fun': method, 'tgt': tgt}
-        jid = self.post_data(self.__url, params).get('jid', None)
+        jid = self.get_data(self.__url, params).get('jid', None)
         return jid
 
     def look_jid(self, jid):  # 根据异步执行命令返回的jid查看事件结果
         params = {'client': 'runner', 'fun': 'jobs.lookup_jid', 'jid': jid}
-        result = self.post_data(self.__url, params)
+        result = self.get_data(self.__url, params)
         return result
 
     def run(self, salt_client='*', salt_method='cmd.run_all', salt_params='w', timeout=1800):
         try:
             if not self.salt_command(salt_client, 'test.ping')[salt_client]:
-                return -98, 'test.ping error 98', '', salt_client
+                return -98, 'test.ping error 98', ''
         except Exception as e:
-            return -99, 'test.ping error 99', str(e), salt_client
+            return -99, 'test.ping error 99', str(e)
 
         t = 0
         jid = self.salt_async_command(salt_client, salt_method, salt_params)
         if not jid:
-            return -100, '连接失败', '连接失败或主机不存在', salt_client
+            return -100, '连接失败', '连接失败或主机不存在'
 
         while True:
             time.sleep(5)
@@ -100,23 +96,7 @@ class SaltApi:
                 t += 5
             result = self.look_jid(jid)
             for i in result.keys():
-                return result[i]['retcode'], result[i]['stdout'], result[i]['stderr'], i
-
-    def salt_alive(self, tgt):
-        '''
-        salt主机存活检测
-        '''
-        params = [{'client': 'local', 'tgt': tgt, 'fun': 'test.ping'}]
-        ret = self.post_data(self.__url, params)
-        return ret
-
-    def detail_monions(self, monions_id):
-        '''
-        获取monion信息
-        :return:
-        '''
-        ret = self.get_data(self.__url + 'minions/' + monions_id)
-        return ret
+                return result[i]['retcode'], result[i]['stdout'], result[i]['stderr']
 
 
 if __name__ == '__main__':
